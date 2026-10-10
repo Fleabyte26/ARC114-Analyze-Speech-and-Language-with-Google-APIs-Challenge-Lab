@@ -1,0 +1,112 @@
+# ARC114 – Analyze Speech and Language with Google APIs: Challenge Lab
+
+## 1. Task 1: API key (console)
+
+APIs & Services > Credentials > Create credentials > API key. If it asks you to pick APIs, choose only Cloud Natural Language API and Cloud Speech-to-Text API.
+
+Check my progress: Create an API key
+
+Then open the lab VM: Compute Engine > VM instances > SSH. Export your key there, then paste the blocks below in the VM.
+
+## 2. Task 2: entity analysis
+
+```bash
+
+cd ~
+cat > nl_request.json <<'EOF'
+{
+  "document":{
+    "type":"PLAIN_TEXT",
+    "content":"With approximately 8.2 million people residing in Boston, the capital city of Massachusetts is one of the largest in the United States."
+  },
+  "encodingType":"UTF8"
+}
+EOF
+curl -s -X POST -H "Content-Type: application/json" --data-binary @nl_request.json "https://language.googleapis.com/v1/documents:analyzeEntities?key=`printenv API_KEY`" > nl_response.json
+cat nl_response.json
+
+```
+
+Expect entities like Boston and Massachusetts.
+
+Check my progress: Make an entity analysis request and call the Natural Language API
+
+## 3. Task 3: speech analysis
+
+```bash
+
+cd ~
+cat > speech_request.json <<'EOF'
+{
+  "config": {
+      "encoding":"FLAC",
+      "languageCode": "en-US"
+  },
+  "audio": {
+      "uri":"gs://cloud-samples-tests/speech/brooklyn.flac"
+  }
+}
+EOF
+curl -s -X POST -H "Content-Type: application/json" --data-binary @speech_request.json "https://speech.googleapis.com/v1/speech:recognize?key=`printenv API_KEY`" > speech_response.json
+cat speech_response.json
+
+```
+
+Expect "how old is the Brooklyn Bridge".
+
+Check my progress: Create a speech analysis request and call the Speech API
+
+## 4. Task 4: sentiment analysis
+
+```bash
+
+cd ~
+cat > sentiment_analysis.py <<'EOF'
+import argparse
+
+from google.cloud import language_v1
+
+
+def print_result(annotations):
+    score = annotations.document_sentiment.score
+    magnitude = annotations.document_sentiment.magnitude
+
+    for index, sentence in enumerate(annotations.sentences):
+        sentence_sentiment = sentence.sentiment.score
+        print(f"Sentence {index} has a sentiment score of {sentence_sentiment}")
+
+    print(f"Overall Sentiment: score of {score} with magnitude of {magnitude}")
+    return 0
+
+
+def analyze(movie_review_filename):
+    """Run a sentiment analysis request on text within a passed filename."""
+    client = language_v1.LanguageServiceClient()
+
+    with open(movie_review_filename, "r") as review_file:
+        content = review_file.read()
+
+    document = language_v1.Document(content=content, type_=language_v1.Document.Type.PLAIN_TEXT)
+    annotations = client.analyze_sentiment(request={"document": document})
+
+    print_result(annotations)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("movie_review_filename", help="The filename of the movie review you'd like to analyze.")
+    args = parser.parse_args()
+
+    analyze(args.movie_review_filename)
+EOF
+gsutil cp gs://cloud-samples-tests/natural-language/sentiment-samples.tgz .
+gunzip sentiment-samples.tgz
+tar -xvf sentiment-samples.tar
+python3 sentiment_analysis.py reviews/bladerunner-pos.txt
+history -a
+
+```
+
+Expect sentence scores and a positive overall sentiment.
+
+Check my progress: Analyze sentiment with the Natural Language API
